@@ -1,0 +1,171 @@
+tar -zxvf 
+修改ip
+./bin/elasticsearch
+
+curl 'zkp4:9200/_cat/health?v'
+curl 'zkp4:9200/_cat/nodes?v'
+curl 'zkp4:9200/_cat/indices?v'
+
+bin/plugin install mobz/elasticsearch-head
+http://192.168.100.251:9200/_plugin/head/
+
+CREATE TABLE IF NOT EXISTS hive_user(  
+    id INT ,  
+    name String ,  
+    age int  
+) PARTITIONED BY (create_date String)   
+ROW FORMAT DELIMITED   
+FIELDS TERMINATED BY ','   
+LINES TERMINATED BY '\n'  
+STORED AS TEXTFILE;
+
+LOAD DATA local INPATH '/usr/whsh/k0.txt' INTO TABLE hive_user PARTITION(CREATE_DATE='2016-09-19');
+LOAD DATA LOCAL INPATH '/usr/whsh/k1.txt' INTO TABLE hive_user PARTITION(CREATE_DATE='2016-09-20');
+
+创建外部表之前将elasticsearch-hadoop-2.4.0.jar上传到hive_home/lib目录下
+CREATE EXTERNAL TABLE es_user (  
+    id INT,  
+    NAME String,  
+    age INT,  
+    create_date String  
+) STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler' TBLPROPERTIES (  
+    'es.resource' = 'es_hive/user_{create_date}',  
+    'es.index.auto.create' = 'true',  
+    'es.nodes' = 'zkp4:9200'  
+);
+
+add jar file:///data0/apache-hive-2.1.0-bin/lib/elasticsearch-hadoop-2.4.0.jar;
+INSERT OVERWRITE TABLE es_user SELECT s.id, s.name, s.age, s.create_date FROM hive_user s where s.create_date='2016-09-19';
+INSERT OVERWRITE TABLE es_user SELECT s.id, s.name, s.age, s.create_date FROM hive_user s where s.create_date='2016-09-20';
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 20,
+    "query" : {
+		"match" : {
+			"name" : "fish1"
+		}
+    }
+}'
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 5,
+    "query" : {
+		"prefix" : {
+			"name" : "fish"
+		}
+    }
+}'
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 5,
+    "query" : {
+		"wildcard" : {
+			"name" : "f*h*"
+		}
+    }
+}'
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 5,
+    "query" : {
+		"regexp" : {
+			"name" : "fish[0-5]"
+		}
+    }
+}'
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 5,
+    "query" : { "term" : { "name" : "fish7" }},
+    "highlight" : {
+        "pre_tags" : ["<tag1>", "<tag2>"],
+        "post_tags" : ["</tag1>", "</tag2>"],
+        "fields" : {
+            "id" : {}
+        }
+    } 
+}'
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 20,
+    "query" : {
+        "filtered" : {
+            "filter" : {
+                "range" : {
+                    "id" : { "gt" : 5 }
+                }
+            },
+            "query" : {
+                "match" : {
+                    "create_date" : "2016-09-19"
+                }
+            }
+        }
+    }
+}'
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+  "query": {
+	"regexp" : {
+		"name" : "fish[0-5]"
+		}
+  },
+  "aggs": {
+    "all_ids": {
+      "terms": {
+        "field": "id"
+      }
+    }
+  }
+}'
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+    "aggs" : {
+        "avg_age" : {
+            "avg" : { "field" : "age" }
+        }
+    }
+}'
+
+curl -XGET 'zkp4:9200/es_hive/_search?pretty' -d '
+{
+    "aggs" : {
+        "all_names" : {
+            "terms" : { "field" : "name" },
+            "aggs" : {
+                "avg_age" : {
+                    "avg" : { "field" : "age" }
+                }
+            }
+        }
+    }
+}'
+
+curl -XDELETE 'zkp4:9200/es_hive'
+
+内容包括几个部分：
+分页:from/size、字段:fields、排序sort、查询:query、过滤:filter、高亮:highlight、统计:facet
+
+Elasticsearch拥有功能强大的聚合统计和全文搜索功能，可以轻松的用于网络问题分析，如404错误计数，页面浏览量，用户访问统计信息等。但它缺少类似标准SQL中的join或子查询的功能。Elasticsearch不支持查询结果的额外处理或分析的中间数据的输出，也不支持数据集的转换（即一个100万行的表，使用分析处理后，成为另一个100万行的表），故不太适合处理复杂的计算逻辑。
+
+
+相反利用Hadoop的mapreduce或者spark计算框架，我们可以支持处理任何数据聚合和转换工作；我们还可以使用hive或spark SQL来降低我们的开发难度。
+
+如果你在寻找一个对应于一个关键词查询的少量的文档集合，并且要支持在这些结果中分面的导航，那么Elasticsearch肯定是最好的选择。如果你需要进行更加复杂的计算，对数据执行服务端的脚本，轻松地运行MapReduce job，那么MongoDB或者Hadoop就进入待选项中。
+
+
+

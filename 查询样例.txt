@@ -1,0 +1,209 @@
+curl -XGET 'http://localhost:9200/_count?pretty' -d '{"query": { "match_all": {} }}'
+curl -i -XGET 'localhost:9200/'
+curl -XGET 'localhost:9200/_count?pretty' -d '{"query": {"match_all": {}}}'
+
+GET /megacorp/employee/1
+curl -XGET 'localhost:9200/megacorp/employee/1?pretty'
+
+GET /megacorp/employee/_search
+curl -XGET 'localhost:9200/megacorp/employee/_search?pretty'
+
+GET /megacorp/employee/_search?q=last_name:Smith
+curl -XGET 'localhost:9200/megacorp/employee/_search?pretty&q=last_name:Smith'
+
+GET /megacorp/employee/_search
+{
+    "query" : {
+        "match" : {
+            "last_name" : "Smith"
+        }
+    }
+}
+curl -XGET 'localhost:9200/megacorp/employee/_search?pretty' -d '
+{
+    "query" : {
+        "match" : {
+            "last_name" : "Smith"
+        }
+    }
+}'
+
+GET /megacorp/employee/_search
+{
+    "query" : {
+        "filtered" : {
+            "filter" : {
+                "range" : {
+                    "age" : { "gt" : 30 } <1>
+                }
+            },
+            "query" : {
+                "match" : {
+                    "last_name" : "smith" <2>
+                }
+            }
+        }
+    }
+}
+
+curl -XGET 'localhost:9200/megacorp/employee/_search?pretty' -d '
+{
+    "query" : {
+        "filtered" : {
+            "filter" : {
+                "range" : {
+                    "age" : { "gt" : 30 }
+                }
+            },
+            "query" : {
+                "match" : {
+                    "last_name" : "smith"
+                }
+            }
+        }
+    }
+}'
+
+GET /megacorp/employee/_search
+{
+    "query" : {
+        "match" : {
+            "about" : "rock climbing"
+        }
+    }
+}
+curl -XGET 'localhost:9200/megacorp/employee/_search?pretty' -d '{
+    "query" : {
+        "match" : {
+            "about" : "rock climbing"
+        }
+    }
+}'
+
+GET /megacorp/employee/_search
+{
+  "aggs": {
+    "all_interests": {
+      "terms": { "field": "interests" }
+    }
+  }
+}
+
+curl -XGET 'localhost:9200/megacorp/employee/_search?pretty' -d '
+{
+  "aggs": {
+    "all_interests": {
+      "terms": { "field": "interests" }
+    }
+  }
+}'
+
+GET /megacorp/employee/_search
+{
+  "query": {
+    "match": {
+      "last_name": "smith"
+    }
+  },
+  "aggs": {
+    "all_interests": {
+      "terms": {
+        "field": "interests"
+      }
+    }
+  }
+}
+
+curl -XGET 'localhost:9200/megacorp/employee/_search?pretty' -d '
+{
+  "query": {
+    "match": {
+      "last_name": "smith"
+    }
+  },
+  "aggs": {
+    "all_interests": {
+      "terms": {
+        "field": "interests"
+      }
+    }
+  }
+}'
+
+GET /megacorp/employee/_search
+{
+    "aggs" : {
+        "all_interests" : {
+            "terms" : { "field" : "interests" },
+            "aggs" : {
+                "avg_age" : {
+                    "avg" : { "field" : "age" }
+                }
+            }
+        }
+    }
+}
+curl -XGET 'localhost:9200/megacorp/employee/_search?pretty' -d '
+{
+    "aggs" : {
+        "all_interests" : {
+            "terms" : { "field" : "interests" },
+            "aggs" : {
+                "avg_age" : {
+                    "avg" : { "field" : "age" }
+                }
+            }
+        }
+    }
+}'
+
+GET /_cluster/health
+curl -XGET 'localhost:9200/_cluster/health?pretty'
+
+内容包括几个部分：
+分页:from/size、字段:fields、排序sort、查询:query、过滤:filter、高亮:highlight、统计:facet
+
+{
+	"from":0,
+	"size":10,
+	"fields":["title","content","publish_date","category", "author"],
+	"sort":[
+        { "publish_date" : {"order" : "asc"} },
+        "_score"
+	],
+	"query":{
+		"bool":{
+			"should" : [
+				{
+					"term" : { "title" : "中国" }
+				},
+				{
+					"term" : { "content" : "中国" }
+				}
+			]}
+	},
+	"filter":{
+		"range" : {
+			"publish_date" : { 
+				"from" : "2010/07/01", 
+                "to" : "2010/07/21", 
+                "include_lower" : true, 
+                "include_upper" : false
+            }
+		}
+	},
+	"highlight" : {
+        "pre_tags" : ["<tag1>", "<tag2>"],
+        "post_tags" : ["</tag1>", "</tag2>"],
+        "fields" : {
+            "title" : {}, 
+			"content" : {}
+		}
+	},
+	"facets" : {
+		"cate" : { "terms" : {"field" : "category"} }
+    }
+}
+
+
+

@@ -1,0 +1,267 @@
+CREATE EXTERNAL TABLE es_user (  
+    id INT,  
+    NAME String,  
+    age INT,  
+    create_date String  
+) STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler' TBLPROPERTIES (  
+    'es.resource' = 'es_hive/user_{create_date}',  
+    'es.index.auto.create' = 'true',  
+    'es.nodes' = 'h2:9200'  
+);
+
+
+CREATE EXTERNAL TABLE es_user_test (  
+    id INT,  
+    NAME String,  
+    age INT,  
+    create_date String  
+) STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler' TBLPROPERTIES (  
+    'es.resource' = 'es_hive_test/user_{create_date}',  
+    'es.index.auto.create' = 'true',  
+    'es.nodes' = 'h1:9200'  
+);
+
+CREATE TABLE IF NOT EXISTS hive_user(  
+    id INT ,  
+    name String ,  
+    age int  
+) PARTITIONED BY (create_date String)   
+ROW FORMAT DELIMITED   
+FIELDS TERMINATED BY ','   
+LINES TERMINATED BY '\n'  
+STORED AS TEXTFILE;
+
+0,fish0,0 
+1,fish1,1  
+2,fish2,2  
+3,fish3,3  
+4,fish4,4  
+5,fish5,5  
+6,fish6,6  
+7,fish7,7  
+8,fish8,8  
+9,fish9,9
+
+LOAD DATA local INPATH '/user/whsh/k0.txt' INTO TABLE hive_user PARTITION(CREATE_DATE='2016-07-26');
+LOAD DATA LOCAL INPATH '/user/whsh/k1.txt' INTO TABLE hive_user PARTITION(CREATE_DATE='2016-07-27');
+
+INSERT OVERWRITE TABLE es_user SELECT s.id, s.name, s.age, s.create_date FROM hive_user s;
+INSERT INTO TABLE es_user SELECT s.id, s.name, s.age, s.create_date FROM hive_user s;
+
+INSERT INTO es_user SELECT s.id, s.name, s.age, s.create_date FROM hive_user s;
+
+INSERT OVERWRITE TABLE es_user SELECT s.id, s.name, s.age, s.create_date FROM hive_user s where s.create_date='2016-07-26';
+INSERT OVERWRITE TABLE es_user SELECT s.id, s.name, s.age, s.create_date FROM hive_user s where s.create_date='2016-07-27';
+
+INSERT OVERWRITE TABLE es_user_test SELECT s.id, s.name, s.age, s.create_date FROM default.hive_user s where s.create_date='2016-07-26';
+INSERT OVERWRITE TABLE es_user SELECT s.id, s.name, s.age, s.create_date FROM hive_user s where s.create_date='2016-07-27';
+
+
+curl 'server1.domain.com:9200/_cat/health?v'
+curl 'server1.domain.com:9200/_cat/nodes?v'
+curl 'server1.domain.com:9200/_cat/indices?v'
+
+curl -XDELETE 'server1.domain.com:9200/es_hive'
+
+curl -XGET 'server1.domain.com:9200/es_hive/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 20,
+    "query" : {
+        "filtered" : {
+            "filter" : {
+                "range" : {
+                    "id" : { "gt" : 5 }
+                }
+            },
+            "query" : {
+                "match" : {
+                    "create_date" : "2016-07-27"
+                }
+            }
+        }
+    }
+}'
+
+curl -XGET 'server1.domain.com:9200/es_hive_test/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 20,
+    "query" : {
+		"match" : {
+			"name" : "fish0"
+		}
+    }
+}'
+
+curl -XGET 'server1.domain.com:9200/es_*/_search?pretty' -d '
+{
+	"from" : 0,
+	"size" : 20,
+    "query" : {
+        "filtered" : {
+            "filter" : {
+                "range" : {
+                    "id" : { "gte" : 5 }
+                }
+            },
+            "query" : {
+                "prefix" : {
+                    "name" : "fish"
+                }
+            }
+        }
+    },
+	"aggs" : {
+        "test" : {
+            "terms" : { "field" : "create_date" },
+            "aggs" : {
+                "avg_age" : {
+                    "avg" : { "field" : "age" }
+                }
+            }
+        }
+    }
+}'
+
+
+CREATE TABLE `w3svc_user_agent`(
+  `date` string, 
+  `time` string, 
+  `s_ip` string, 
+  `cs_method` string, 
+  `cs_uri_stem` string, 
+  `cs_uri_query` string, 
+  `s_port` string, 
+  `cs_username` string, 
+  `c_ip` string, 
+  `user_agent` string, 
+  `sc_status` string, 
+  `sc_substatus` string, 
+  `sc_win32_status` string, 
+  `time_taken` string, 
+  `ug_os_name` string, 
+  `ug_os_devicetype` string, 
+  `ug_os_manufacturer` string, 
+  `ug_browser_name` string, 
+  `ug_browser_type` string, 
+  `ug_browser_manufacturer` string, 
+  `ug_browser_renderingengine` string, 
+  `ug_browser_version` string, 
+  `ug_browser_version_major` string, 
+  `ug_browser_version_minor` string)
+  
+  
+CREATE EXTERNAL TABLE es_w3svc_user_agent (  
+  `date` string, 
+  `time` string, 
+  `s_ip` string, 
+  `cs_method` string, 
+  `cs_uri_stem` string, 
+  `cs_uri_query` string, 
+  `s_port` string, 
+  `cs_username` string, 
+  `c_ip` string, 
+  `user_agent` string, 
+  `sc_status` string, 
+  `sc_substatus` string, 
+  `sc_win32_status` string, 
+  `time_taken` string, 
+  `ug_os_name` string, 
+  `ug_os_devicetype` string, 
+  `ug_os_manufacturer` string, 
+  `ug_browser_name` string, 
+  `ug_browser_type` string, 
+  `ug_browser_manufacturer` string, 
+  `ug_browser_renderingengine` string, 
+  `ug_browser_version` string, 
+  `ug_browser_version_major` string, 
+  `ug_browser_version_minor` string  
+) STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler' TBLPROPERTIES (  
+    'es.resource' = 'es_w3svc_user_agent/user_{date}',  
+    'es.index.auto.create' = 'true',  
+    'es.nodes' = 'server1.domain.com:9200'  
+);
+
+INSERT OVERWRITE TABLE es_w3svc_user_agent SELECT * FROM w3svc_user_agent s;
+INSERT OVERWRITE TABLE es_w3svc_user_agent SELECT * FROM w3svc_user_agent s where s.date='2016-07-26';
+
+
+CREATE TABLE `security_event_whsh`(
+  `datex` date, 
+  `date_str` string, 
+  `time_str` string, 
+  `device_address` string, 
+  `name` string, 
+  `event_type` string, 
+  `level` string, 
+  `count` int, 
+  `src_address` string, 
+  `src_device_name` string, 
+  `src_port` string, 
+  `actor` string, 
+  `destination_address` string, 
+  `dest_name` string, 
+  `dest_port` string, 
+  `action` string, 
+  `opr_object` string, 
+  `protocol` string, 
+  `event_result` string, 
+  `message` string, 
+  `collector_address` string, 
+  `collection_time` string, 
+  `extension1` string, 
+  `extension2` string, 
+  `extension3` string, 
+  `extension4` string, 
+  `device_type` string, 
+  `device_brand` string, 
+  `device_version` string, 
+  `last_updated` timestamp)
+  
+
+ CREATE EXTERNAL TABLE `es_security_event_whsh`(
+  `datex` date, 
+  `date_str` string, 
+  `time_str` string, 
+  `device_address` string, 
+  `name` string, 
+  `event_type` string, 
+  `level` string, 
+  `count` int, 
+  `src_address` string, 
+  `src_device_name` string, 
+  `src_port` string, 
+  `actor` string, 
+  `destination_address` string, 
+  `dest_name` string, 
+  `dest_port` string, 
+  `action` string, 
+  `opr_object` string, 
+  `protocol` string, 
+  `event_result` string, 
+  `message` string, 
+  `collector_address` string, 
+  `collection_time` string, 
+  `extension1` string, 
+  `extension2` string, 
+  `extension3` string, 
+  `extension4` string, 
+  `device_type` string, 
+  `device_brand` string, 
+  `device_version` string, 
+  `last_updated` timestamp)
+STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler' TBLPROPERTIES (  
+    'es.resource' = 'es_security_event_{device_type}/test_{datex}',  
+    'es.index.auto.create' = 'true',  
+    'es.nodes' = 'server1.domain.com:9200'  
+);
+
+INSERT OVERWRITE TABLE es_security_event_whsh SELECT * FROM security_event_whsh s;
+
+
+
+
+
+
+
